@@ -1,28 +1,21 @@
-# Usar NGINX como servidor web estático
 FROM nginx:alpine
 
-# Eliminar la configuración por defecto de NGINX
+# Crear directorio temporal para NGINX (OpenShift permite escribir en /tmp)
+RUN mkdir -p /tmp/nginx \
+    && chmod -R 777 /tmp/nginx
+
+# Eliminar contenido por defecto
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copiar el build web generado por Flutter
+# Copiar build web
 COPY build/web /usr/share/nginx/html
 
-# OpenShift usa el puerto 8080
-EXPOSE 8080
+# Configurar NGINX para usar /tmp/nginx como temp folder
+RUN sed -i '1i client_body_temp_path /tmp/nginx;' /etc/nginx/nginx.conf
 
-# Reemplazar el puerto 80 por 8080 en nginx
+# Cambiar puerto 80 → 8080
 RUN sed -i 's/80/8080/g' /etc/nginx/conf.d/default.conf
 
-# --- FIX PARA OPENSHIFT ---
-# Crear directorios y dar permisos al usuario arbitrario de OpenShift
-RUN mkdir -p /var/cache/nginx \
-    && mkdir -p /var/run \
-    && mkdir -p /var/log/nginx \
-    && chown -R 1001:0 /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx \
-    && chmod -R g+rwX /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx
+EXPOSE 8080
 
-# Forzar usuario no root compatible con OpenShift
-USER 1001
-
-# Ejecutar NGINX en primer plano
 CMD ["nginx", "-g", "daemon off;"]
